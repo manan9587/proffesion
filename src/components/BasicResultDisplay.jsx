@@ -76,7 +76,7 @@ const BasicResultDisplay = ({ results }) => {
                         .select('description')
                         .eq('number', number)
                         .eq('type', item.type)
-                        .single();
+                        .maybeSingle();
                     if (!error && data) {
                         fetchedInterpretations[item.key] = data.description;
                     } else {
