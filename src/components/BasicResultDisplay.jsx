@@ -98,7 +98,7 @@ const BasicResultDisplay = ({ results }) => {
                         .select('profession')
                         .eq('number', lifeNumber)
                         .eq('type', 'Life Path')
-                        .single();
+                        .maybeSingle();
                     if (!profError && profData) {
                         fetchedProfession = profData.profession;
                     }
