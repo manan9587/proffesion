@@ -1,5 +1,3 @@
-import { supabase } from './customSupabaseClient';
-
 import supabase from './customSupabaseClient';
 
 export const trackVisit = async (page_section) => {
