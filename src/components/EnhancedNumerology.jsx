@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -73,13 +72,23 @@ const EnhancedNumerology = ({ fullName, birthDate, onComplete }) => {
     setResult(null);
 
     try {
-      // Try database calculation first
-      const { data, error } = await supabase.rpc('compute_full_profile_all_numbers', {
-        p_birth_date: birthDate,
-        p_full_name: fullName.trim(),
-        p_user_id: user?.id,
-        p_session_id: !user ? session?.session_id || sessionStorage.getItem('user_session_id') : null
-      });
+      // If user is authenticated, try database calculation; otherwise use local fallback to avoid server-side RLS insert errors
+      let data = null;
+      if (user) {
+        const { data: rpcData, error: rpcError } = await supabase.rpc('compute_full_profile_all_numbers', {
+          p_birth_date: birthDate,
+          p_full_name: fullName.trim(),
+          p_user_id: user?.id,
+          p_session_id: null
+        });
+        if (rpcError) {
+          throw rpcError;
+        }
+        data = rpcData;
+      } else {
+        // No authenticated user — prepare an empty data object so fallback logic below will run
+        data = {};
+      }
 
       if (error) {
         throw error;
