@@ -130,18 +130,26 @@ const DateOfBirthCalculator = () => {
         } else {
           // Use local fallback instead of RPC
           const fallbackResults = FallbackCalculations.calculateAllNumbers(name, date);
+          // Normalize the fallback shape to match BasicResultDisplay expectations
+          const normalized = {
+            life_path: { number: fallbackResults.lifePath ?? fallbackResults.life_path ?? null },
+            expression: { number: fallbackResults.expression ?? null },
+            soul_urge: { number: fallbackResults.soulUrge ?? fallbackResults.soul_urge ?? null },
+            personality: { number: fallbackResults.personality ?? null },
+            maturity: { number: fallbackResults.maturity ?? null },
+          };
           try {
             const { data: interpretationData, error: interpretationError } = await supabase
               .from('number_interpretations')
               .select('profession')
-              .eq('number', fallbackResults.lifePath)
+              .eq('number', fallbackResults.lifePath ?? fallbackResults.life_path)
               .eq('type', 'Life Path')
               .maybeSingle();
 
             const profession = interpretationError ? 'Not available' : interpretationData?.profession || 'Not available';
-            setResults({ ...fallbackResults, profession });
+            setResults({ ...normalized, profession });
           } catch (e) {
-            setResults(fallbackResults);
+            setResults(normalized);
           }
         }
       } else {
