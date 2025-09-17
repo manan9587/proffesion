@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Star, Zap, Heart, Brain, User, Sparkles, Briefcase } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/lib/customSupabaseClient';
+import supabase from '@/lib/customSupabaseClient';
 import { Loader2 } from 'lucide-react';
 
 const NumberResult = ({ icon, title, number, description, delay, colorClass, loading }) => (
