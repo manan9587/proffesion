@@ -79,27 +79,41 @@ const EnhancedNumerology = ({ fullName, birthDate, onComplete }) => {
         // Confirm server-side auth user before calling RPC to avoid RLS violations
         const userCheck = await supabase.auth.getUser();
         const rpcUser = userCheck?.data?.user || null;
-        if (!rpcUser) {
-          // If server doesn't recognize a user session yet, fallback to local calculations
-          console.warn('Supabase client has no authenticated user; skipping RPC.');
+        if (!rpcUser || rpcUser.id !== user?.id) {
+          console.warn('Supabase client session does not match app user; skipping RPC.');
           data = {};
         } else {
           const { data: rpcData, error: rpcError } = await supabase.rpc('compute_full_profile_all_numbers', {
             p_birth_date: birthDate,
             p_full_name: fullName.trim(),
           });
+
           if (rpcError) {
-            throw rpcError;
+            // Handle RLS violation gracefully and fallback
+            if (rpcError.code === '42501' || (rpcError.message && rpcError.message.toLowerCase().includes('row-level'))) {
+              try {
+                const sessionInfo = await supabase.auth.getSession();
+                await PerformanceMonitor.logError({
+                  userId: rpcUser.id,
+                  sessionId: sessionInfo?.data?.session?.id || null,
+                  context: 'rpc_compute_full_profile_rls_violation',
+                  error: rpcError,
+                  details: { fullName, birthDate }
+                });
+              } catch (logErr) {
+                console.error('Failed to log RLS RPC error:', logErr);
+              }
+              data = {};
+            } else {
+              throw rpcError;
+            }
+          } else {
+            data = rpcData;
           }
-          data = rpcData;
         }
       } else {
         // No authenticated user — prepare an empty data object so fallback logic below will run
         data = {};
-      }
-
-      if (error) {
-        throw error;
       }
 
       // Validate that we got all the core numbers
