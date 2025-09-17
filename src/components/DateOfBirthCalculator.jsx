@@ -102,8 +102,6 @@ const DateOfBirthCalculator = () => {
         const { data, error } = await supabase.rpc('compute_full_profile_all_numbers', {
           p_birth_date: date,
           p_full_name: name,
-          p_user_id: user.id,
-          p_session_id: null,
         });
 
         if (error) {
