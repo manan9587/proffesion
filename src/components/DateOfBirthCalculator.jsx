@@ -99,17 +99,38 @@ const DateOfBirthCalculator = () => {
 
     try {
       if (user) {
-        const { data, error } = await supabase.rpc('compute_full_profile_all_numbers', {
-          p_birth_date: date,
-          p_full_name: name,
-        });
+        // Confirm server-side auth user exists before calling RPC
+        const { data: authGet } = await supabase.auth.getUser();
+        const rpcUser = authGet?.user || null;
+        if (!rpcUser) {
+          console.warn('Supabase client has no authenticated user; skipping RPC and using fallback.');
+          const fallbackResults = FallbackCalculations.calculateAllNumbers(name, date);
+          try {
+            const { data: interpretationData, error: interpretationError } = await supabase
+              .from('number_interpretations')
+              .select('profession')
+              .eq('number', fallbackResults.lifePath)
+              .eq('type', 'Life Path')
+              .maybeSingle();
 
-        if (error) {
-          throw error;
+            const profession = interpretationError ? 'Not available' : interpretationData?.profession || 'Not available';
+            setResults({ ...fallbackResults, profession });
+          } catch (e) {
+            setResults(fallbackResults);
+          }
+        } else {
+          const { data, error } = await supabase.rpc('compute_full_profile_all_numbers', {
+            p_birth_date: date,
+            p_full_name: name,
+          });
+
+          if (error) {
+            throw error;
+          }
+
+          const calculatedResults = Array.isArray(data) ? data[0] : data;
+          setResults(calculatedResults);
         }
-
-        const calculatedResults = data[0];
-        setResults(calculatedResults);
       } else {
         // User not authenticated — use local fallback to avoid server-side RLS errors
         const fallbackResults = FallbackCalculations.calculateAllNumbers(name, date);
@@ -119,7 +140,7 @@ const DateOfBirthCalculator = () => {
             .select('profession')
             .eq('number', fallbackResults.lifePath)
             .eq('type', 'Life Path')
-            .single();
+            .maybeSingle();
 
           const profession = interpretationError ? 'Not available' : interpretationData?.profession || 'Not available';
           setResults({ ...fallbackResults, profession });
