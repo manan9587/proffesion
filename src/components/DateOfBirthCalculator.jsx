@@ -100,8 +100,8 @@ const DateOfBirthCalculator = () => {
     try {
       if (user) {
         // Confirm server-side auth user exists before calling RPC
-        const { data: authGet } = await supabase.auth.getUser();
-        const rpcUser = authGet?.user || null;
+        const userCheck = await supabase.auth.getUser();
+        const rpcUser = userCheck?.data?.user || null;
         if (!rpcUser) {
           console.warn('Supabase client has no authenticated user; skipping RPC and using fallback.');
           const fallbackResults = FallbackCalculations.calculateAllNumbers(name, date);
