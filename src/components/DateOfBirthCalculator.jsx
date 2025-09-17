@@ -11,6 +11,7 @@ import { smartAuth } from '@/lib/smartAuth';
 import { Loader2 } from 'lucide-react';
 import { FallbackCalculations } from '@/lib/fallbackCalculations';
 import { ValidationUtils } from '@/lib/validationUtils';
+import { PerformanceMonitor } from '@/lib/performanceMonitor';
 
 const DateInput = ({ value, onChange, placeholder, maxLength }) => {
   const handleChange = (e) => {
