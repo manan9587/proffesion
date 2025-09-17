@@ -120,34 +120,20 @@ const DateOfBirthCalculator = () => {
             setResults(fallbackResults);
           }
         } else {
-          const { data, error } = await supabase.rpc('compute_full_profile_all_numbers', {
-            p_birth_date: date,
-            p_full_name: name,
-          });
+          // Use local fallback instead of RPC
+          const fallbackResults = FallbackCalculations.calculateAllNumbers(name, date);
+          try {
+            const { data: interpretationData, error: interpretationError } = await supabase
+              .from('number_interpretations')
+              .select('profession')
+              .eq('number', fallbackResults.lifePath)
+              .eq('type', 'Life Path')
+              .maybeSingle();
 
-          if (error) {
-            // Handle RLS violation gracefully
-            if (error.code === '42501' || (error.message && error.message.toLowerCase().includes('row-level'))) {
-              try {
-                const sessionInfo = await supabase.auth.getSession();
-                await PerformanceMonitor.logError({
-                  userId: rpcUser.id,
-                  sessionId: sessionInfo?.data?.session?.id || null,
-                  context: 'rpc_compute_full_profile_rls_violation',
-                  error,
-                  details: { name, date }
-                });
-              } catch (logErr) {
-                console.error('Failed to log RLS RPC error:', logErr);
-              }
-              const fallbackResults = FallbackCalculations.calculateAllNumbers(name, date);
-              setResults(fallbackResults);
-            } else {
-              throw error;
-            }
-          } else {
-            const calculatedResults = Array.isArray(data) ? data[0] : data;
-            setResults(calculatedResults);
+            const profession = interpretationError ? 'Not available' : interpretationData?.profession || 'Not available';
+            setResults({ ...fallbackResults, profession });
+          } catch (e) {
+            setResults(fallbackResults);
           }
         }
       } else {
