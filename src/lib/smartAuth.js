@@ -3,12 +3,10 @@ import supabase from '@/lib/customSupabaseClient';
 /**
  * Attempts to sign in a user. If sign-in fails with "Invalid login credentials",
  * it automatically attempts to create a new account with the same credentials.
- * @param {string} email - The user's email.
- * @param {string} password - The user's password.
+ * @param {string} email - The user's email or a name/date identifier.
+ * @param {string} password - The user's password or date identifier.
  * @returns {Promise<{user: object|null, session: object|null, error: object|null, isNewUser: boolean}>}
  */
-import supabase from '@/lib/customSupabaseClient';
-
 export const smartAuth = async (email, password) => {
   // If caller passed a name instead of email, synthesize a deterministic pseudo-email
   const looksLikeEmail = typeof email === 'string' && email.includes('@');
