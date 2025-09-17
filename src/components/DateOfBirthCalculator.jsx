@@ -153,13 +153,27 @@ const DateOfBirthCalculator = () => {
       }
 
     } catch (error) {
+      try {
+        const sessionInfo = await supabase.auth.getSession();
+        const userInfo = await supabase.auth.getUser();
+        await PerformanceMonitor.logError({
+          userId: userInfo?.data?.user?.id || null,
+          sessionId: sessionInfo?.data?.session?.id || null,
+          context: 'rpc_compute_full_profile_failure',
+          error,
+          details: { name, date }
+        });
+      } catch (logErr) {
+        console.error('Failed to log RPC error to PerformanceMonitor:', logErr);
+      }
+
       console.error('Calculation error, trying fallback:', error);
       toast({
         title: 'Using Fallback',
         description: "Could not reach our fast calculation server, using local fallback.",
         variant: "default",
       });
-      
+
       try {
         const fallbackResults = FallbackCalculations.calculateAllNumbers(name, date);
         const { lifePath } = fallbackResults;
