@@ -148,7 +148,7 @@ const DateOfBirthCalculator = () => {
           .select('profession')
           .eq('number', lifePath)
           .eq('type', 'Life Path')
-          .single();
+          .maybeSingle();
 
         const profession = interpretationError ? 'Not available' : interpretationData?.profession || 'Not available';
         
