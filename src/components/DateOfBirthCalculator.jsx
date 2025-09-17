@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -99,27 +98,37 @@ const DateOfBirthCalculator = () => {
     setResults(null);
 
     try {
-      const currentUserId = user ? user.id : null;
-      const currentSessionId = !user ? (sessionStorage.getItem('user_session_id') || crypto.randomUUID()) : null;
-      if (!user && !sessionStorage.getItem('user_session_id')) {
-        sessionStorage.setItem('user_session_id', currentSessionId);
-      }
-      
-      const { data, error } = await supabase.rpc('compute_full_profile_all_numbers', {
-        p_birth_date: date,
-        p_full_name: name,
-        p_user_id: currentUserId,
-        p_session_id: currentSessionId,
-      });
+      if (user) {
+        const { data, error } = await supabase.rpc('compute_full_profile_all_numbers', {
+          p_birth_date: date,
+          p_full_name: name,
+          p_user_id: user.id,
+          p_session_id: null,
+        });
 
-      if (error) {
-        throw error;
-      }
-      
-      const calculatedResults = data[0];
-      setResults(calculatedResults);
+        if (error) {
+          throw error;
+        }
 
-      if (!user) {
+        const calculatedResults = data[0];
+        setResults(calculatedResults);
+      } else {
+        // User not authenticated — use local fallback to avoid server-side RLS errors
+        const fallbackResults = FallbackCalculations.calculateAllNumbers(name, date);
+        try {
+          const { data: interpretationData, error: interpretationError } = await supabase
+            .from('number_interpretations')
+            .select('profession')
+            .eq('number', fallbackResults.lifePath)
+            .eq('type', 'Life Path')
+            .single();
+
+          const profession = interpretationError ? 'Not available' : interpretationData?.profession || 'Not available';
+          setResults({ ...fallbackResults, profession });
+        } catch (e) {
+          setResults(fallbackResults);
+        }
+
         smartAuth(name, date);
       }
 
