@@ -1,4 +1,5 @@
 import { supabase } from './customSupabaseClient';
+import supabase from './customSupabaseClient';
 import { FallbackCalculations } from './fallbackCalculations';
 import { PerformanceMonitor } from './performanceMonitor';
 
