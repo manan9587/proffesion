@@ -76,8 +76,9 @@ const EnhancedNumerology = ({ fullName, birthDate, onComplete }) => {
       let data = null;
       if (user) {
         // Confirm server-side auth user before calling RPC to avoid RLS violations
-        const { data: userData } = await supabase.auth.getUser();
-        if (!userData || !userData.user) {
+        const userCheck = await supabase.auth.getUser();
+        const rpcUser = userCheck?.data?.user || null;
+        if (!rpcUser) {
           // If server doesn't recognize a user session yet, fallback to local calculations
           console.warn('Supabase client has no authenticated user; skipping RPC.');
           data = {};
