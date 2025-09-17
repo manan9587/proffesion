@@ -34,6 +34,7 @@ const NumberResult = ({ icon, title, number, description, delay, colorClass, loa
 const BasicResultDisplay = ({ results }) => {
     const [interpretations, setInterpretations] = useState({});
     const [loading, setLoading] = useState(true);
+    const [localProfession, setLocalProfession] = useState(null);
 
     const ICONS = {
         life_path: <Star className="h-6 w-6" />,
