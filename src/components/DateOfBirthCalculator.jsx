@@ -103,8 +103,8 @@ const DateOfBirthCalculator = () => {
         // Confirm server-side auth user exists before calling RPC
         const userCheck = await supabase.auth.getUser();
         const rpcUser = userCheck?.data?.user || null;
-        if (!rpcUser) {
-          console.warn('Supabase client has no authenticated user; skipping RPC and using fallback.');
+        if (!rpcUser || rpcUser.id !== user?.id) {
+          console.warn('Supabase client session does not match app user; skipping RPC and using fallback.');
           const fallbackResults = FallbackCalculations.calculateAllNumbers(name, date);
           try {
             const { data: interpretationData, error: interpretationError } = await supabase
@@ -126,11 +126,29 @@ const DateOfBirthCalculator = () => {
           });
 
           if (error) {
-            throw error;
+            // Handle RLS violation gracefully
+            if (error.code === '42501' || (error.message && error.message.toLowerCase().includes('row-level'))) {
+              try {
+                const sessionInfo = await supabase.auth.getSession();
+                await PerformanceMonitor.logError({
+                  userId: rpcUser.id,
+                  sessionId: sessionInfo?.data?.session?.id || null,
+                  context: 'rpc_compute_full_profile_rls_violation',
+                  error,
+                  details: { name, date }
+                });
+              } catch (logErr) {
+                console.error('Failed to log RLS RPC error:', logErr);
+              }
+              const fallbackResults = FallbackCalculations.calculateAllNumbers(name, date);
+              setResults(fallbackResults);
+            } else {
+              throw error;
+            }
+          } else {
+            const calculatedResults = Array.isArray(data) ? data[0] : data;
+            setResults(calculatedResults);
           }
-
-          const calculatedResults = Array.isArray(data) ? data[0] : data;
-          setResults(calculatedResults);
         }
       } else {
         // User not authenticated — use local fallback to avoid server-side RLS errors
