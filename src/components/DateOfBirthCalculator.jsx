@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +34,7 @@ const DateInput = ({ value, onChange, placeholder, maxLength }) => {
 };
 
 const DateOfBirthCalculator = () => {
+  // Always start with empty fields on page load per requirements
   const [day, setDay] = useState('');
   const [month, setMonth] = useState('');
   const [year, setYear] = useState('');
@@ -42,38 +43,6 @@ const DateOfBirthCalculator = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
-
-  useEffect(() => {
-    const fetchLastCalculation = async () => {
-      if (user) {
-        const { data, error } = await supabase
-          .from('numerology_calculations')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (data && data.birth_date) {
-          const [y, m, d] = data.birth_date.split('-');
-          setDay(d);
-          setMonth(m);
-          setYear(y);
-          setName(data.full_name);
-          setResults({
-            life_path: data.life_path,
-            expression: data.expression,
-            soul_urge: data.soul_urge,
-            personality: data.personality,
-            maturity: data.maturity,
-            birth_number: data.birth_number || data.mulank || null,
-            profession: data.profession,
-          });
-        }
-      }
-    };
-    fetchLastCalculation();
-  }, [user]);
 
   const buildNormalized = (fallbackResults) => {
     return {
@@ -111,7 +80,6 @@ const DateOfBirthCalculator = () => {
     setResults(null);
 
     try {
-      // Always use local fallback calculations to avoid server-side RLS issues
       const fallbackResults = FallbackCalculations.calculateAllNumbers(name, date);
       const normalized = buildNormalized(fallbackResults);
 
