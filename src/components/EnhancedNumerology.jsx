@@ -78,8 +78,6 @@ const EnhancedNumerology = ({ fullName, birthDate, onComplete }) => {
         const { data: rpcData, error: rpcError } = await supabase.rpc('compute_full_profile_all_numbers', {
           p_birth_date: birthDate,
           p_full_name: fullName.trim(),
-          p_user_id: user?.id,
-          p_session_id: null
         });
         if (rpcError) {
           throw rpcError;
