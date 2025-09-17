@@ -133,25 +133,30 @@ const BasicResultDisplay = ({ results }) => {
                 <Sparkles className="h-5 w-5 text-yellow-300" /> Your Core Numerology Numbers <Sparkles className="h-5 w-5 text-yellow-300" />
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-                {coreNumbers.map((item, index) => (
-                    <NumberResult
-                        key={item.key}
-                        icon={ICONS[item.key]}
-                        title={item.title}
-                        number={results[item.key]}
-                        description={interpretations[item.key] || ''}
-                        delay={index}
-                        colorClass={COLORS[item.key]}
-                        loading={loading}
-                    />
-                ))}
-                 {results.profession && (
+                {coreNumbers.map((item, index) => {
+                    const raw = results[item.key];
+                    const numberValue = raw && typeof raw === 'object' && raw.number ? raw.number : raw;
+                    return (
+                        <NumberResult
+                            key={item.key}
+                            icon={ICONS[item.key]}
+                            title={item.title}
+                            number={numberValue}
+                            description={interpretations[item.key] || ''}
+                            delay={index}
+                            colorClass={COLORS[item.key]}
+                            loading={loading}
+                        />
+                    );
+                })}
+
+                {(results.profession || localProfession) && (
                     <div className="md:col-span-2">
                         <NumberResult
                             key="profession"
                             icon={ICONS.profession}
                             title="Suggested Professions"
-                            description={results.profession}
+                            description={results.profession || localProfession}
                             delay={5}
                             colorClass={COLORS.profession}
                             loading={false}
