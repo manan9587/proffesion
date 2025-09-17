@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Star, Zap, Heart, Brain, User, Sparkles, Briefcase } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import supabase from '@/lib/customSupabaseClient';
 import { Loader2 } from 'lucide-react';
 
