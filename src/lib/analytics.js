@@ -1,5 +1,7 @@
 import { supabase } from './customSupabaseClient';
 
+import supabase from './customSupabaseClient';
+
 export const trackVisit = async (page_section) => {
     try {
         const sessionId = sessionStorage.getItem('user_session_id');
