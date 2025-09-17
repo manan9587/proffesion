@@ -9,6 +9,7 @@ import supabase from '@/lib/customSupabaseClient';
 import { smartAuth } from '@/lib/smartAuth';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { FallbackCalculations } from '@/lib/fallbackCalculations';
+import { PerformanceMonitor } from '@/lib/performanceMonitor';
 
 const InterpretationCard = ({ icon, title, number, interpretation, colorClass, delay }) => (
   <motion.div
