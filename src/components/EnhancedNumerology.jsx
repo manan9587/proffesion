@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Sparkles, User, Key, Sun, Moon, Star, Heart, Brain, Briefcase, Zap } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/lib/customSupabaseClient';
+import supabase from '@/lib/customSupabaseClient';
 import { smartAuth } from '@/lib/smartAuth';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { FallbackCalculations } from '@/lib/fallbackCalculations';
