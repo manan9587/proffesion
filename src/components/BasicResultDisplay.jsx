@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Star, Zap, Heart, Brain, User, Sparkles, Briefcase } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import supabase from '@/lib/customSupabaseClient';
 import { Loader2 } from 'lucide-react';
@@ -65,29 +64,75 @@ const BasicResultDisplay = ({ results }) => {
         { key: 'maturity', title: 'Maturity', type: 'Maturity' },
     ];
 
+    const typeToTable = {
+        'Mulank': 'birth_number_meanings',
+        'Life Path': 'life_path_meanings',
+        'Expression': 'expression_meanings',
+        'Soul Urge': 'soul_urge_meanings',
+        'Personality': 'personality_meanings',
+        'Maturity': 'maturity_meanings',
+    };
+
     useEffect(() => {
         const fetchInterpretations = async () => {
             setLoading(true);
             const fetchedInterpretations = {};
             const promises = numberTypes.map(async (item) => {
-                // Normalize different shapes: results[item.key] might be a number or an object { number: N }
                 const raw = results[item.key];
                 const number = raw && typeof raw === 'object' && raw.number !== undefined ? raw.number : raw;
                 if (number || number === 0) {
-                    try {
-                        const { data, error } = await supabase
-                            .from('number_interpretations')
-                            .select('description')
-                            .eq('number', number)
-                            .eq('type', item.type)
-                            .maybeSingle();
-                        if (!error && data) {
-                            fetchedInterpretations[item.key] = data.description;
-                        } else {
-                            fetchedInterpretations[item.key] = `Meaning for ${item.title} ${number} not found.`;
+                    // Try dedicated table first
+                    const tableName = typeToTable[item.type] || null;
+                    let found = null;
+                    if (tableName) {
+                        try {
+                            const { data, error } = await supabase
+                                .from(tableName)
+                                .select('title, description, profession, keywords, advice')
+                                .eq('number', number)
+                                .maybeSingle();
+                            if (!error && data) {
+                                found = data;
+                            }
+                        } catch (e) {
+                            // ignore and fallback
                         }
-                    } catch (e) {
-                        fetchedInterpretations[item.key] = `Meaning for ${item.title} ${number} not found.`;
+                    }
+
+                    if (!found) {
+                        // Fallback to generic number_interpretations
+                        try {
+                            const { data, error } = await supabase
+                                .from('number_interpretations')
+                                .select('title, description, profession')
+                                .eq('number', number)
+                                .eq('type', item.type)
+                                .maybeSingle();
+                            if (!error && data) {
+                                found = data;
+                            }
+                        } catch (e) {
+                            // ignore
+                        }
+                    }
+
+                    if (found) {
+                        // Normalize fields
+                        fetchedInterpretations[item.key] = {
+                            title: found.title || `${item.title} ${number}`,
+                            description: found.description || '',
+                            profession: found.profession || null,
+                            keywords: found.keywords || [],
+                            advice: found.advice || null,
+                        };
+                    } else {
+                        fetchedInterpretations[item.key] = {
+                            title: `${item.title} ${number}`,
+                            description: `Meaning for ${item.title} ${number} not found.`,
+                            profession: null,
+                            keywords: [],
+                            advice: null,
+                        };
                     }
                 }
             });
@@ -137,7 +182,6 @@ const BasicResultDisplay = ({ results }) => {
             setLoading(false);
 
             if (fetchedProfession) {
-                // set a local state to show profession if parent didn't include it
                 setLocalProfession(fetchedProfession);
             }
         };
@@ -168,7 +212,7 @@ const BasicResultDisplay = ({ results }) => {
                             icon={ICONS[item.key]}
                             title={item.title}
                             number={numberValue}
-                            description={interpretations[item.key] || ''}
+                            description={interpretations[item.key]?.description || ''}
                             delay={index}
                             colorClass={COLORS[item.key]}
                             loading={loading}
@@ -190,15 +234,6 @@ const BasicResultDisplay = ({ results }) => {
                     </div>
                 )}
             </div>
-             <Button asChild className="mt-8">
-                {
-                  (() => {
-                    const lifeRaw = results.life_path;
-                    const lifeNumber = lifeRaw && typeof lifeRaw === 'object' && lifeRaw.number !== undefined ? lifeRaw.number : lifeRaw;
-                    return <Link to={`/explore/${lifeNumber}`}>Explore Your Life Path Number {lifeNumber}</Link>;
-                  })()
-                }
-             </Button>
         </div>
     );
 };
