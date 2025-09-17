@@ -17,7 +17,7 @@ const NumberResult = ({ icon, title, number, description, delay, colorClass, loa
         <div className="card-content w-full">
             <div className="flex items-baseline gap-2">
                 <p className="text-lg font-bold text-white">{title}</p>
-                {number && <p className={`text-2xl font-black ${colorClass}`}>{number}</p>}
+                {number || number === 0 ? <p className={`text-2xl font-black ${colorClass}`}>{number}</p> : null}
             </div>
             {loading ? (
                 <div className="flex items-center mt-1">
@@ -37,6 +37,7 @@ const BasicResultDisplay = ({ results }) => {
     const [localProfession, setLocalProfession] = useState(null);
 
     const ICONS = {
+        birth_number: <Sparkles className="h-6 w-6" />,
         life_path: <Star className="h-6 w-6" />,
         expression: <Zap className="h-6 w-6" />,
         soul_urge: <Heart className="h-6 w-6" />,
@@ -46,6 +47,7 @@ const BasicResultDisplay = ({ results }) => {
     };
 
     const COLORS = {
+        birth_number: 'text-yellow-300',
         life_path: 'text-yellow-400',
         expression: 'text-cyan-400',
         soul_urge: 'text-pink-400',
@@ -55,6 +57,7 @@ const BasicResultDisplay = ({ results }) => {
     };
 
     const numberTypes = [
+        { key: 'birth_number', title: 'Birth Number (Mulank)', type: 'Mulank' },
         { key: 'life_path', title: 'Life Path', type: 'Life Path' },
         { key: 'expression', title: 'Expression', type: 'Expression' },
         { key: 'soul_urge', title: 'Soul Urge', type: 'Soul Urge' },
@@ -69,17 +72,21 @@ const BasicResultDisplay = ({ results }) => {
             const promises = numberTypes.map(async (item) => {
                 // Normalize different shapes: results[item.key] might be a number or an object { number: N }
                 const raw = results[item.key];
-                const number = raw && typeof raw === 'object' && raw.number ? raw.number : raw;
+                const number = raw && typeof raw === 'object' && raw.number !== undefined ? raw.number : raw;
                 if (number || number === 0) {
-                    const { data, error } = await supabase
-                        .from('number_interpretations')
-                        .select('description')
-                        .eq('number', number)
-                        .eq('type', item.type)
-                        .maybeSingle();
-                    if (!error && data) {
-                        fetchedInterpretations[item.key] = data.description;
-                    } else {
+                    try {
+                        const { data, error } = await supabase
+                            .from('number_interpretations')
+                            .select('description')
+                            .eq('number', number)
+                            .eq('type', item.type)
+                            .maybeSingle();
+                        if (!error && data) {
+                            fetchedInterpretations[item.key] = data.description;
+                        } else {
+                            fetchedInterpretations[item.key] = `Meaning for ${item.title} ${number} not found.`;
+                        }
+                    } catch (e) {
                         fetchedInterpretations[item.key] = `Meaning for ${item.title} ${number} not found.`;
                     }
                 }
@@ -87,11 +94,30 @@ const BasicResultDisplay = ({ results }) => {
 
             await Promise.all(promises);
 
-            // Fetch suggested professions based on life_path number (if available)
+            // Fetch suggested professions based on life_path + mulank combination first
             let fetchedProfession = null;
             const lifeRaw = results.life_path;
-            const lifeNumber = lifeRaw && typeof lifeRaw === 'object' && lifeRaw.number ? lifeRaw.number : lifeRaw;
-            if (lifeNumber || lifeNumber === 0) {
+            const lifeNumber = lifeRaw && typeof lifeRaw === 'object' && lifeRaw.number !== undefined ? lifeRaw.number : lifeRaw;
+            const birthRaw = results.birth_number;
+            const mulankNumber = birthRaw && typeof birthRaw === 'object' && birthRaw.number !== undefined ? birthRaw.number : birthRaw;
+
+            if (mulankNumber != null && lifeNumber != null) {
+                try {
+                    const { data: profData, error: profError } = await supabase
+                        .from('professions')
+                        .select('profession')
+                        .eq('mulank', mulankNumber)
+                        .eq('life_path', lifeNumber)
+                        .maybeSingle();
+                    if (!profError && profData && profData.profession) {
+                        fetchedProfession = profData.profession;
+                    }
+                } catch (e) {
+                    // ignore and fallback
+                }
+            }
+
+            if (!fetchedProfession && lifeNumber != null) {
                 try {
                     const { data: profData, error: profError } = await supabase
                         .from('number_interpretations')
@@ -99,7 +125,7 @@ const BasicResultDisplay = ({ results }) => {
                         .eq('number', lifeNumber)
                         .eq('type', 'Life Path')
                         .maybeSingle();
-                    if (!profError && profData) {
+                    if (!profError && profData && profData.profession) {
                         fetchedProfession = profData.profession;
                     }
                 } catch (e) {
@@ -135,7 +161,7 @@ const BasicResultDisplay = ({ results }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
                 {coreNumbers.map((item, index) => {
                     const raw = results[item.key];
-                    const numberValue = raw && typeof raw === 'object' && raw.number ? raw.number : raw;
+                    const numberValue = raw && typeof raw === 'object' && raw.number !== undefined ? raw.number : raw;
                     return (
                         <NumberResult
                             key={item.key}
@@ -168,7 +194,7 @@ const BasicResultDisplay = ({ results }) => {
                 {
                   (() => {
                     const lifeRaw = results.life_path;
-                    const lifeNumber = lifeRaw && typeof lifeRaw === 'object' && lifeRaw.number ? lifeRaw.number : lifeRaw;
+                    const lifeNumber = lifeRaw && typeof lifeRaw === 'object' && lifeRaw.number !== undefined ? lifeRaw.number : lifeRaw;
                     return <Link to={`/explore/${lifeNumber}`}>Explore Your Life Path Number {lifeNumber}</Link>;
                   })()
                 }

@@ -66,6 +66,7 @@ const DateOfBirthCalculator = () => {
             soul_urge: data.soul_urge,
             personality: data.personality,
             maturity: data.maturity,
+            birth_number: data.birth_number || data.mulank || null,
             profession: data.profession,
           });
         }
@@ -73,6 +74,17 @@ const DateOfBirthCalculator = () => {
     };
     fetchLastCalculation();
   }, [user]);
+
+  const buildNormalized = (fallbackResults) => {
+    return {
+      life_path: { number: fallbackResults.lifePath ?? fallbackResults.life_path ?? null },
+      expression: { number: fallbackResults.expression ?? null },
+      soul_urge: { number: fallbackResults.soulUrge ?? fallbackResults.soul_urge ?? null },
+      personality: { number: fallbackResults.personality ?? null },
+      maturity: { number: fallbackResults.maturity ?? null },
+      birth_number: { number: fallbackResults.birth_number ?? fallbackResults.mulank ?? null },
+    };
+  };
 
   const calculateNumbers = async () => {
     if (!name) {
@@ -99,119 +111,84 @@ const DateOfBirthCalculator = () => {
     setResults(null);
 
     try {
-      if (user) {
-        // Confirm server-side auth user exists before calling RPC
-        const userCheck = await supabase.auth.getUser();
-        const rpcUser = userCheck?.data?.user || null;
-        if (!rpcUser || rpcUser.id !== user?.id) {
-          console.warn('Supabase client session does not match app user; skipping RPC and using fallback.');
-          const fallbackResults = FallbackCalculations.calculateAllNumbers(name, date);
-          // Normalize the fallback shape to match BasicResultDisplay expectations
-          const normalized = {
-            life_path: { number: fallbackResults.lifePath ?? fallbackResults.life_path ?? null },
-            expression: { number: fallbackResults.expression ?? null },
-            soul_urge: { number: fallbackResults.soulUrge ?? fallbackResults.soul_urge ?? null },
-            personality: { number: fallbackResults.personality ?? null },
-            maturity: { number: fallbackResults.maturity ?? null },
-          };
-          try {
-            const { data: interpretationData, error: interpretationError } = await supabase
-              .from('number_interpretations')
-              .select('profession')
-              .eq('number', fallbackResults.lifePath ?? fallbackResults.life_path)
-              .eq('type', 'Life Path')
-              .maybeSingle();
+      // Always use local fallback calculations to avoid server-side RLS issues
+      const fallbackResults = FallbackCalculations.calculateAllNumbers(name, date);
+      const normalized = buildNormalized(fallbackResults);
 
-            const profession = interpretationError ? 'Not available' : interpretationData?.profession || 'Not available';
-            setResults({ ...normalized, profession });
-          } catch (e) {
-            setResults(normalized);
-          }
-        } else {
-          // Use local fallback instead of RPC
-          const fallbackResults = FallbackCalculations.calculateAllNumbers(name, date);
-          // Normalize the fallback shape to match BasicResultDisplay expectations
-          const normalized = {
-            life_path: { number: fallbackResults.lifePath ?? fallbackResults.life_path ?? null },
-            expression: { number: fallbackResults.expression ?? null },
-            soul_urge: { number: fallbackResults.soulUrge ?? fallbackResults.soul_urge ?? null },
-            personality: { number: fallbackResults.personality ?? null },
-            maturity: { number: fallbackResults.maturity ?? null },
-          };
-          try {
-            const { data: interpretationData, error: interpretationError } = await supabase
-              .from('number_interpretations')
-              .select('profession')
-              .eq('number', fallbackResults.lifePath ?? fallbackResults.life_path)
-              .eq('type', 'Life Path')
-              .maybeSingle();
-
-            const profession = interpretationError ? 'Not available' : interpretationData?.profession || 'Not available';
-            setResults({ ...normalized, profession });
-          } catch (e) {
-            setResults(normalized);
-          }
-        }
-      } else {
-        // User not authenticated — use local fallback to avoid server-side RLS errors
-        const fallbackResults = FallbackCalculations.calculateAllNumbers(name, date);
-        try {
-          const { data: interpretationData, error: interpretationError } = await supabase
-            .from('number_interpretations')
+      // Try to fetch combined profession from a dedicated 'professions' table using mulank + life_path
+      let profession = null;
+      try {
+        const mulankVal = fallbackResults.birth_number ?? fallbackResults.mulank ?? null;
+        const lifeVal = fallbackResults.lifePath ?? fallbackResults.life_path ?? null;
+        if (mulankVal != null && lifeVal != null) {
+          const { data: profData, error: profError } = await supabase
+            .from('professions')
             .select('profession')
-            .eq('number', fallbackResults.lifePath)
-            .eq('type', 'Life Path')
+            .eq('mulank', mulankVal)
+            .eq('life_path', lifeVal)
             .maybeSingle();
 
-          const profession = interpretationError ? 'Not available' : interpretationData?.profession || 'Not available';
-          setResults({ ...fallbackResults, profession });
-        } catch (e) {
-          setResults(fallbackResults);
+          if (!profError && profData && profData.profession) {
+            profession = profData.profession;
+          }
         }
+      } catch (e) {
+        // ignore and fallback to number_interpretations below
+      }
 
+      if (!profession) {
+        try {
+          const lifeNum = fallbackResults.lifePath ?? fallbackResults.life_path ?? null;
+          if (lifeNum != null) {
+            const { data: interpretationData, error: interpretationError } = await supabase
+              .from('number_interpretations')
+              .select('profession')
+              .eq('number', lifeNum)
+              .eq('type', 'Life Path')
+              .maybeSingle();
+
+            profession = interpretationError ? null : interpretationData?.profession || null;
+          }
+        } catch (e) {
+          profession = null;
+        }
+      }
+
+      setResults({ ...normalized, profession });
+
+      if (!user) {
+        // attempt to create a minimal account in background for analytics (best-effort)
         smartAuth(name, date);
       }
 
     } catch (error) {
-      try {
-        const sessionInfo = await supabase.auth.getSession();
-        const userInfo = await supabase.auth.getUser();
-        await PerformanceMonitor.logError({
-          userId: userInfo?.data?.user?.id || null,
-          sessionId: sessionInfo?.data?.session?.id || null,
-          context: 'rpc_compute_full_profile_failure',
-          error,
-          details: { name, date }
-        });
-      } catch (logErr) {
-        console.error('Failed to log RPC error to PerformanceMonitor:', logErr);
-      }
-
       console.error('Calculation error, trying fallback:', error);
       toast({
         title: 'Using Fallback',
         description: "Could not reach our fast calculation server, using local fallback.",
-        variant: "default",
+        variant: 'default',
       });
 
       try {
         const fallbackResults = FallbackCalculations.calculateAllNumbers(name, date);
-        // Normalize fallback shape
-        const normalized = {
-          life_path: { number: fallbackResults.lifePath ?? fallbackResults.life_path ?? null },
-          expression: { number: fallbackResults.expression ?? null },
-          soul_urge: { number: fallbackResults.soulUrge ?? fallbackResults.soul_urge ?? null },
-          personality: { number: fallbackResults.personality ?? null },
-          maturity: { number: fallbackResults.maturity ?? null },
-        };
-        const { data: interpretationData, error: interpretationError } = await supabase
-          .from('number_interpretations')
-          .select('profession')
-          .eq('number', fallbackResults.lifePath ?? fallbackResults.life_path)
-          .eq('type', 'Life Path')
-          .maybeSingle();
+        const normalized = buildNormalized(fallbackResults);
 
-        const profession = interpretationError ? 'Not available' : interpretationData?.profession || 'Not available';
+        let profession = null;
+        try {
+          const lifeNum = fallbackResults.lifePath ?? fallbackResults.life_path ?? null;
+          if (lifeNum != null) {
+            const { data: interpretationData, error: interpretationError } = await supabase
+              .from('number_interpretations')
+              .select('profession')
+              .eq('number', lifeNum)
+              .eq('type', 'Life Path')
+              .maybeSingle();
+
+            profession = interpretationError ? null : interpretationData?.profession || null;
+          }
+        } catch (e) {
+          profession = null;
+        }
 
         setResults({ ...normalized, profession });
 
