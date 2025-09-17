@@ -62,7 +62,7 @@ export class NumerologyService {
             .select('*')
             .eq('number', number)
             .eq('type', type)
-            .single();
+            .maybeSingle();
 
         if (error) throw error;
         return data;
