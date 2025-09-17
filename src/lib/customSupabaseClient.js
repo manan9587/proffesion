@@ -9,5 +9,4 @@ if (!_global.__supabaseClient) {
   _global.__supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 }
 
-const supabase = _global.__supabaseClient;
-export default supabase;
+export default _global.__supabaseClient;
