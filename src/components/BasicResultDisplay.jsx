@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Star, Zap, Heart, Brain, User, Sparkles, Briefcase } from 'lucide-react';
@@ -67,8 +66,10 @@ const BasicResultDisplay = ({ results }) => {
             setLoading(true);
             const fetchedInterpretations = {};
             const promises = numberTypes.map(async (item) => {
-                const number = results[item.key];
-                if (number) {
+                // Normalize different shapes: results[item.key] might be a number or an object { number: N }
+                const raw = results[item.key];
+                const number = raw && typeof raw === 'object' && raw.number ? raw.number : raw;
+                if (number || number === 0) {
                     const { data, error } = await supabase
                         .from('number_interpretations')
                         .select('description')
@@ -84,8 +85,34 @@ const BasicResultDisplay = ({ results }) => {
             });
 
             await Promise.all(promises);
+
+            // Fetch suggested professions based on life_path number (if available)
+            let fetchedProfession = null;
+            const lifeRaw = results.life_path;
+            const lifeNumber = lifeRaw && typeof lifeRaw === 'object' && lifeRaw.number ? lifeRaw.number : lifeRaw;
+            if (lifeNumber || lifeNumber === 0) {
+                try {
+                    const { data: profData, error: profError } = await supabase
+                        .from('number_interpretations')
+                        .select('profession')
+                        .eq('number', lifeNumber)
+                        .eq('type', 'Life Path')
+                        .single();
+                    if (!profError && profData) {
+                        fetchedProfession = profData.profession;
+                    }
+                } catch (e) {
+                    // ignore
+                }
+            }
+
             setInterpretations(fetchedInterpretations);
             setLoading(false);
+
+            if (fetchedProfession) {
+                // set a local state to show profession if parent didn't include it
+                setLocalProfession(fetchedProfession);
+            }
         };
 
         if (results) {
