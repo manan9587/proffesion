@@ -197,6 +197,20 @@ const EnhancedNumerology = ({ fullName, birthDate, onComplete }) => {
       }
 
     } catch (error) {
+      try {
+        const sessionInfo = await supabase.auth.getSession();
+        const userInfo = await supabase.auth.getUser();
+        await PerformanceMonitor.logError({
+          userId: userInfo?.data?.user?.id || null,
+          sessionId: sessionInfo?.data?.session?.id || null,
+          context: 'rpc_compute_full_profile_failure',
+          error,
+          details: { fullName, birthDate }
+        });
+      } catch (logErr) {
+        console.error('Failed to log RPC error to PerformanceMonitor:', logErr);
+      }
+
       console.error('Enhanced calculation failed, using fallback:', error);
 
       try {
