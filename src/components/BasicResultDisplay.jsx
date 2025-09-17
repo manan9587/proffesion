@@ -165,8 +165,14 @@ const BasicResultDisplay = ({ results }) => {
                 )}
             </div>
              <Button asChild className="mt-8">
-                <Link to={`/explore/${results.life_path}`}>Explore Your Life Path Number {results.life_path}</Link>
-            </Button>
+                {
+                  (() => {
+                    const lifeRaw = results.life_path;
+                    const lifeNumber = lifeRaw && typeof lifeRaw === 'object' && lifeRaw.number ? lifeRaw.number : lifeRaw;
+                    return <Link to={`/explore/${lifeNumber}`}>Explore Your Life Path Number {lifeNumber}</Link>;
+                  })()
+                }
+             </Button>
         </div>
     );
 };
