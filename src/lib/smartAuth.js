@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/customSupabaseClient';
+import supabase from '@/lib/customSupabaseClient';
 
 /**
  * Attempts to sign in a user. If sign-in fails with "Invalid login credentials",
@@ -7,7 +7,7 @@ import { supabase } from '@/lib/customSupabaseClient';
  * @param {string} password - The user's password.
  * @returns {Promise<{user: object|null, session: object|null, error: object|null, isNewUser: boolean}>}
  */
-import { supabase } from '@/lib/customSupabaseClient';
+import supabase from '@/lib/customSupabaseClient';
 
 export const smartAuth = async (email, password) => {
   // If caller passed a name instead of email, synthesize a deterministic pseudo-email
