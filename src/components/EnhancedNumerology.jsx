@@ -75,14 +75,22 @@ const EnhancedNumerology = ({ fullName, birthDate, onComplete }) => {
       // If user is authenticated, try database calculation; otherwise use local fallback to avoid server-side RLS insert errors
       let data = null;
       if (user) {
-        const { data: rpcData, error: rpcError } = await supabase.rpc('compute_full_profile_all_numbers', {
-          p_birth_date: birthDate,
-          p_full_name: fullName.trim(),
-        });
-        if (rpcError) {
-          throw rpcError;
+        // Confirm server-side auth user before calling RPC to avoid RLS violations
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData || !userData.user) {
+          // If server doesn't recognize a user session yet, fallback to local calculations
+          console.warn('Supabase client has no authenticated user; skipping RPC.');
+          data = {};
+        } else {
+          const { data: rpcData, error: rpcError } = await supabase.rpc('compute_full_profile_all_numbers', {
+            p_birth_date: birthDate,
+            p_full_name: fullName.trim(),
+          });
+          if (rpcError) {
+            throw rpcError;
+          }
+          data = rpcData;
         }
-        data = rpcData;
       } else {
         // No authenticated user — prepare an empty data object so fallback logic below will run
         data = {};
