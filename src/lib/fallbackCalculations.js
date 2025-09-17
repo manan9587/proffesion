@@ -1,4 +1,3 @@
-
 const PYTHAG_MAP = {
   A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7, H: 8, I: 9,
   J: 1, K: 2, L: 3, M: 4, N: 5, O: 6, P: 7, Q: 8, R: 9,
@@ -53,8 +52,9 @@ export class FallbackCalculations {
     const month = date.getUTCMonth() + 1;
     const day = date.getUTCDate();
     const year = date.getUTCFullYear();
-    
-    const total = this.digitSum(day) + this.digitSum(month) + this.digitSum(year);
+
+    // Sum the full numeric values of month, day, and year, then reduce
+    const total = day + month + year;
     return this.reduceNumber(total);
   }
 
@@ -90,4 +90,3 @@ export class FallbackCalculations {
     };
   }
 }
-  
