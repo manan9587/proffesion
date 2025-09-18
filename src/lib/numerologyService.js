@@ -1,4 +1,4 @@
-import { supabase } from './customSupabaseClient';
+import supabase from './customSupabaseClient';
 import { FallbackCalculations } from './fallbackCalculations';
 import { PerformanceMonitor } from './performanceMonitor';
 
@@ -62,7 +62,7 @@ export class NumerologyService {
             .select('*')
             .eq('number', number)
             .eq('type', type)
-            .single();
+            .maybeSingle();
 
         if (error) throw error;
         return data;

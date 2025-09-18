@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
     import { useAuth } from '@/contexts/SupabaseAuthContext';
     import DateOfBirthCalculator from '@/components/DateOfBirthCalculator';
     import { LogOut, User, Sparkles, Zap, Star, LayoutDashboard, Loader2, Calculator } from 'lucide-react';
-    import { supabase } from '@/lib/customSupabaseClient';
+    import supabase from '@/lib/customSupabaseClient';
     import { trackVisit } from '@/lib/analytics';
 
     const HomePage = () => {

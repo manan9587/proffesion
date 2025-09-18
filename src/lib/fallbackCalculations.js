@@ -1,4 +1,3 @@
-
 const PYTHAG_MAP = {
   A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7, H: 8, I: 9,
   J: 1, K: 2, L: 3, M: 4, N: 5, O: 6, P: 7, Q: 8, R: 9,
@@ -27,14 +26,13 @@ function sumMappedConsonants(str) {
     .reduce((sum, ch) => sum + (PYTHAG_MAP[ch] || 0), 0);
 }
 
-
 export class FallbackCalculations {
   static digitSum(n) {
     return n.toString().split('').reduce((sum, digit) => sum + parseInt(digit, 10), 0);
   }
 
   static reduceNumber(n) {
-    let currentVal = n;
+    let currentVal = Number(n) || 0;
     while (currentVal > 9 && ![11, 22, 33].includes(currentVal)) {
       currentVal = this.digitSum(currentVal);
     }
@@ -50,12 +48,24 @@ export class FallbackCalculations {
   
   static calculateLifePath(birthDate) {
     const date = new Date(birthDate);
+    if (isNaN(date.getTime())) return null;
     const month = date.getUTCMonth() + 1;
     const day = date.getUTCDate();
     const year = date.getUTCFullYear();
-    
-    const total = this.digitSum(day) + this.digitSum(month) + this.digitSum(year);
+
+    // Sum the full numeric values of month, day, and year, then reduce
+    const total = day + month + year;
     return this.reduceNumber(total);
+  }
+
+  static calculateMulank(birthDate) {
+    const date = new Date(birthDate);
+    if (isNaN(date.getTime())) return null;
+    const day = date.getUTCDate();
+
+    // Keep master numbers 11 and 22
+    if (day === 11 || day === 22) return day;
+    return this.reduceNumber(day);
   }
 
   static calculateExpressionNumber(name) {
@@ -71,7 +81,19 @@ export class FallbackCalculations {
   }
 
   static calculateMaturity(lifePath, expression) {
-    return this.reduceNumber(lifePath + expression);
+    if (lifePath == null || expression == null) return null;
+    return this.reduceNumber(Number(lifePath) + Number(expression));
+  }
+
+  static calculatePersonalYear(birthDate, referenceYear = new Date().getFullYear()) {
+    const date = new Date(birthDate);
+    if (isNaN(date.getTime())) return null;
+    const month = date.getUTCMonth() + 1;
+    const day = date.getUTCDate();
+
+    // A common approach: reduce (day + month + current year) to get personal year
+    const total = day + month + referenceYear;
+    return this.reduceNumber(total);
   }
 
   static calculateAllNumbers(fullName, birthDate) {
@@ -80,14 +102,23 @@ export class FallbackCalculations {
     const soulUrge = this.calculateSoulUrgeNumber(fullName);
     const personality = this.calculatePersonalityNumber(fullName);
     const maturity = this.calculateMaturity(lifePath, expression);
-    
+    const birthNumber = this.calculateMulank(birthDate);
+    const personal_year = this.calculatePersonalYear(birthDate);
+    const personal_month = this.calculatePersonalMonth(personal_year, new Date().getUTCMonth() + 1);
+
     return {
+      // provide both snake_case and camelCase keys used across the codebase
+      life_path: lifePath,
       lifePath,
       expression,
+      soul_urge: soulUrge,
       soulUrge,
       personality,
       maturity,
+      birth_number: birthNumber,
+      mulank: birthNumber,
+      personal_year,
+      personal_month,
     };
   }
 }
-  

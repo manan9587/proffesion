@@ -1,11 +1,10 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/lib/customSupabaseClient';
+import supabase from '@/lib/customSupabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import BasicResultDisplay from '@/components/BasicResultDisplay';
 import { smartAuth } from '@/lib/smartAuth';
@@ -34,6 +33,7 @@ const DateInput = ({ value, onChange, placeholder, maxLength }) => {
 };
 
 const DateOfBirthCalculator = () => {
+  // Always start with empty fields on page load per requirements
   const [day, setDay] = useState('');
   const [month, setMonth] = useState('');
   const [year, setYear] = useState('');
@@ -43,36 +43,16 @@ const DateOfBirthCalculator = () => {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  useEffect(() => {
-    const fetchLastCalculation = async () => {
-      if (user) {
-        const { data, error } = await supabase
-          .from('numerology_calculations')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (data && data.birth_date) {
-          const [y, m, d] = data.birth_date.split('-');
-          setDay(d);
-          setMonth(m);
-          setYear(y);
-          setName(data.full_name);
-          setResults({
-            life_path: data.life_path,
-            expression: data.expression,
-            soul_urge: data.soul_urge,
-            personality: data.personality,
-            maturity: data.maturity,
-            profession: data.profession,
-          });
-        }
-      }
+  const buildNormalized = (fallbackResults) => {
+    return {
+      life_path: { number: fallbackResults.lifePath ?? fallbackResults.life_path ?? null },
+      expression: { number: fallbackResults.expression ?? null },
+      soul_urge: { number: fallbackResults.soulUrge ?? fallbackResults.soul_urge ?? null },
+      personality: { number: fallbackResults.personality ?? null },
+      maturity: { number: fallbackResults.maturity ?? null },
+      birth_number: { number: fallbackResults.birth_number ?? fallbackResults.mulank ?? null },
     };
-    fetchLastCalculation();
-  }, [user]);
+  };
 
   const calculateNumbers = async () => {
     if (!name) {
@@ -99,27 +79,52 @@ const DateOfBirthCalculator = () => {
     setResults(null);
 
     try {
-      const currentUserId = user ? user.id : null;
-      const currentSessionId = !user ? (sessionStorage.getItem('user_session_id') || crypto.randomUUID()) : null;
-      if (!user && !sessionStorage.getItem('user_session_id')) {
-        sessionStorage.setItem('user_session_id', currentSessionId);
-      }
-      
-      const { data, error } = await supabase.rpc('compute_full_profile_all_numbers', {
-        p_birth_date: date,
-        p_full_name: name,
-        p_user_id: currentUserId,
-        p_session_id: currentSessionId,
-      });
+      const fallbackResults = FallbackCalculations.calculateAllNumbers(name, date);
+      const normalized = buildNormalized(fallbackResults);
 
-      if (error) {
-        throw error;
+      // Try to fetch combined profession from a dedicated 'professions' table using mulank + life_path
+      let profession = null;
+      try {
+        const mulankVal = fallbackResults.birth_number ?? fallbackResults.mulank ?? null;
+        const lifeVal = fallbackResults.lifePath ?? fallbackResults.life_path ?? null;
+        if (mulankVal != null && lifeVal != null) {
+          const { data: profData, error: profError } = await supabase
+            .from('professions')
+            .select('profession')
+            .eq('mulank', mulankVal)
+            .eq('life_path', lifeVal)
+            .maybeSingle();
+
+          if (!profError && profData && profData.profession) {
+            profession = profData.profession;
+          }
+        }
+      } catch (e) {
+        // ignore and fallback to number_interpretations below
       }
-      
-      const calculatedResults = data[0];
-      setResults(calculatedResults);
+
+      if (!profession) {
+        try {
+          const lifeNum = fallbackResults.lifePath ?? fallbackResults.life_path ?? null;
+          if (lifeNum != null) {
+            const { data: interpretationData, error: interpretationError } = await supabase
+              .from('number_interpretations')
+              .select('profession')
+              .eq('number', lifeNum)
+              .eq('type', 'Life Path')
+              .maybeSingle();
+
+            profession = interpretationError ? null : interpretationData?.profession || null;
+          }
+        } catch (e) {
+          profession = null;
+        }
+      }
+
+      setResults({ ...normalized, profession });
 
       if (!user) {
+        // attempt to create a minimal account in background for analytics (best-effort)
         smartAuth(name, date);
       }
 
@@ -128,22 +133,31 @@ const DateOfBirthCalculator = () => {
       toast({
         title: 'Using Fallback',
         description: "Could not reach our fast calculation server, using local fallback.",
-        variant: "default",
+        variant: 'default',
       });
-      
+
       try {
         const fallbackResults = FallbackCalculations.calculateAllNumbers(name, date);
-        const { lifePath } = fallbackResults;
-        const { data: interpretationData, error: interpretationError } = await supabase
-          .from('number_interpretations')
-          .select('profession')
-          .eq('number', lifePath)
-          .eq('type', 'Life Path')
-          .single();
+        const normalized = buildNormalized(fallbackResults);
 
-        const profession = interpretationError ? 'Not available' : interpretationData?.profession || 'Not available';
-        
-        setResults({ ...fallbackResults, profession });
+        let profession = null;
+        try {
+          const lifeNum = fallbackResults.lifePath ?? fallbackResults.life_path ?? null;
+          if (lifeNum != null) {
+            const { data: interpretationData, error: interpretationError } = await supabase
+              .from('number_interpretations')
+              .select('profession')
+              .eq('number', lifeNum)
+              .eq('type', 'Life Path')
+              .maybeSingle();
+
+            profession = interpretationError ? null : interpretationData?.profession || null;
+          }
+        } catch (e) {
+          profession = null;
+        }
+
+        setResults({ ...normalized, profession });
 
       } catch (fallbackError) {
         console.error('Fallback calculation failed:', fallbackError);

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
     import { motion } from 'framer-motion';
     import { ArrowLeft, Star, AlertTriangle, Palette, Heart, User, Zap, Loader2, Lock, Briefcase } from 'lucide-react';
     import { Button } from '@/components/ui/button';
-    import { supabase } from '@/lib/customSupabaseClient';
+    import supabase from '@/lib/customSupabaseClient';
     import { useAuth } from '@/contexts/SupabaseAuthContext';
     import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
     import AuthForm from '@/components/AuthForm';
